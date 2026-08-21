@@ -1,0 +1,20 @@
+{
+  "name": "whyslow",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Mede DNS, TCP, TLS, TTFB e download separadamente e diz qual fase está lenta.",
+  "bin": {
+    "whyslow": "src/index.ts"
+  },
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.3"
+  }
+}
