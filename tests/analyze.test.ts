@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { analyze, percentile, phaseStats } from "../src/analyze.ts";
 import { daysUntil } from "../src/probe.ts";
-import { normalizeUrl, parseArgs } from "../src/index.ts";
+import { normalizeUrl, parseArgs } from "../src/cli.ts";
 import type { Finding, Sample } from "../src/types.ts";
 
 function sample(over: Partial<Sample> = {}): Sample {

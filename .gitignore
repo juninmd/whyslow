@@ -1,6 +1,7 @@
 node_modules/
 data/
 dist/
+*.tgz
 *.log
 t.log
 repos.json

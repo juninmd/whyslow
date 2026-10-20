@@ -71,6 +71,7 @@ function connectFirstWorking(
  */
 export function connectionTiming(url: string, opts: ProbeOptions): Promise<ConnectionTiming> {
   const target = new URL(url);
+  const hostname = target.hostname.replace(/^\[|\]$/g, "");
   const secure = target.protocol === "https:";
   const port = Number(target.port || (secure ? 443 : 80));
   const out: ConnectionTiming = {
@@ -88,7 +89,7 @@ export function connectionTiming(url: string, opts: ProbeOptions): Promise<Conne
     const done = (patch: Partial<ConnectionTiming> = {}) => resolve({ ...out, ...patch });
 
     // `all: true` + `verbatim` = a mesma ordem que o cliente veria, IPv6 primeiro.
-    dns.lookup(target.hostname, { all: true, verbatim: true }, async (err, results) => {
+    dns.lookup(hostname, { all: true, verbatim: true }, async (err, results) => {
       const tDns = performance.now();
       out.dnsMs = Math.round(tDns - t0);
       if (err || !results?.length) {
@@ -108,20 +109,37 @@ export function connectionTiming(url: string, opts: ProbeOptions): Promise<Conne
         return done();
       }
 
-      const secured = tls.connect(
-        { socket: attempt.socket, servername: target.hostname, rejectUnauthorized: !opts.insecure },
-        () => {
+      let secured: tls.TLSSocket | undefined;
+      const timer = setTimeout(() => {
+        secured?.destroy();
+        done({ error: `TLS: timeout após ${opts.timeoutMs}ms` });
+      }, opts.timeoutMs);
+      try {
+        const tlsSocket = tls.connect({
+          socket: attempt.socket,
+          servername: net.isIP(hostname) ? undefined : hostname,
+          rejectUnauthorized: !opts.insecure,
+        });
+        if (!tlsSocket) throw new Error("não foi possível criar o socket TLS");
+        secured = tlsSocket;
+        tlsSocket.once("secureConnect", () => {
+          clearTimeout(timer);
           out.tlsMs = Math.round(performance.now() - tTcp);
-          const cert = secured.getPeerCertificate?.();
+          const cert = tlsSocket.getPeerCertificate();
           out.certExpiresInDays = daysUntil(cert?.valid_to);
-          secured.destroy();
+          tlsSocket.destroy();
           done();
-        },
-      );
-      secured.on("error", (e: Error) => {
-        secured.destroy();
-        done({ error: `TLS: ${e.message}` });
-      });
+        });
+        tlsSocket.once("error", (e: Error) => {
+          clearTimeout(timer);
+          tlsSocket.destroy();
+          done({ error: `TLS: ${e.message}` });
+        });
+      } catch (e) {
+        clearTimeout(timer);
+        attempt.socket.destroy();
+        done({ error: `TLS: ${(e as Error).message}` });
+      }
     });
   });
 }
@@ -226,20 +244,29 @@ export async function resolveRedirects(
   url: string,
   opts: ProbeOptions,
   agents: Agents,
-): Promise<{ finalUrl: string; chain: string[]; ms: number }> {
+): Promise<{ finalUrl: string; chain: string[]; ms: number; requestOptions: ProbeOptions }> {
   const chain: string[] = [];
   let current = url;
+  let requestOptions = opts;
   let ms = 0;
   for (let hop = 0; hop < opts.maxRedirects; hop++) {
-    const res = await requestTiming(current, opts, agents);
-    ms += (res.ttfbMs ?? 0) + (res.downloadMs ?? 0);
+    const res = await requestTiming(current, requestOptions, agents);
     if (!res.status || !REDIRECT_CODES.has(res.status) || !res.location) {
-      return { finalUrl: current, chain, ms: hop ? ms : 0 };
+      return { finalUrl: current, chain, ms, requestOptions };
     }
-    current = new URL(res.location, current).toString();
+    ms += (res.ttfbMs ?? 0) + (res.downloadMs ?? 0);
+    const next = new URL(res.location, current);
+    if (next.protocol !== "http:" && next.protocol !== "https:") {
+      throw new TypeError("Redirecionamento deve usar http ou https.");
+    }
+    if (next.origin !== new URL(current).origin) {
+      // Inclui credenciais em cabeçalhos personalizados, sem depender de uma lista de nomes.
+      requestOptions = { ...requestOptions, headers: {} };
+    }
+    current = next.toString();
     chain.push(current);
   }
-  return { finalUrl: current, chain, ms };
+  return { finalUrl: current, chain, ms, requestOptions };
 }
 
 /** Junta as duas medições em uma amostra completa. */
@@ -285,13 +312,13 @@ export async function measure(
 ): Promise<{ samples: Sample[]; finalUrl: string }> {
   const agents = createAgents(opts);
   try {
-    const { finalUrl, chain, ms } = await resolveRedirects(url, opts, agents);
+    const { finalUrl, chain, ms, requestOptions } = await resolveRedirects(url, opts, agents);
     const samples: Sample[] = [];
     for (let i = 0; i < count; i++) {
       // Sem keep-alive toda amostra paga a conexão; com keep-alive, só a primeira.
       const cold = i === 0 || !opts.keepAlive;
-      const conn = cold ? await connectionTiming(finalUrl, opts) : null;
-      const req = await requestTiming(finalUrl, opts, agents);
+      const conn = cold ? await connectionTiming(finalUrl, requestOptions) : null;
+      const req = await requestTiming(finalUrl, requestOptions, agents);
       samples.push(
         toSample(conn, req, {
           redirects: i === 0 ? chain : [],
