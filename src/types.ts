@@ -69,3 +69,15 @@ export interface ProbeOptions {
 }
 
 export type Prober = (url: string, opts: ProbeOptions) => Promise<Sample>;
+
+/** As mesmas opções da CLI; todos os campos são opcionais. */
+export interface DiagnoseOptions extends Partial<ProbeOptions> {
+  /** Quantidade de amostras medidas após o aquecimento. Padrão: 5. */
+  samples?: number;
+}
+
+export interface Diagnosis {
+  finalUrl: string;
+  analysis: Analysis;
+  samples: Sample[];
+}

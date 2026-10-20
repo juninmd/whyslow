@@ -178,12 +178,13 @@ export function analyze(url: string, samples: Sample[]): Analysis {
   }
 
   // ---- redirecionamentos -------------------------------------------------
-  if (last?.redirects.length) {
+  const redirected = samples.find((s) => s.redirects.length);
+  if (redirected) {
     push(
       "redirects",
-      last.redirects.length > 1 ? "warn" : "info",
-      `${last.redirects.length} redirecionamento(s) antes da resposta (+${Math.round(last.redirectMs)}ms)`,
-      last.redirects.join(" → "),
+      redirected.redirects.length > 1 ? "warn" : "info",
+      `${redirected.redirects.length} redirecionamento(s) antes da resposta (+${Math.round(redirected.redirectMs)}ms)`,
+      redirected.redirects.join(" → "),
       "Cada salto paga uma volta completa. Aponte o cliente direto para o destino final.",
     );
   }
