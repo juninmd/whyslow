@@ -1,0 +1,42 @@
+$ bun run start --help
+$ bun run src/cli.ts --help
+
+whyslow — qual fase da requisição está lenta
+
+  whyslow https://exemplo.com
+  whyslow https://api.exemplo.com/health -n 10
+
+Mede DNS, TCP, TLS, TTFB e download separadamente e diz qual é o culpado.
+
+opções:
+  -n, --samples <n>       amostras (padrão 5)
+  -X, --method <verbo>    método HTTP (padrão GET)
+  -H, --header 'K: V'     cabeçalho extra (repetível)
+      --timeout <ms>      timeout de conexão/inatividade (padrão 10000)
+      --no-keepalive      conexão nova a cada amostra (mede o custo frio)
+      --max-redirects <n> saltos seguidos (padrão 5)
+      --insecure          aceita certificado inválido
+      --json              saída JSON (análise + amostras)
+  -h, --help
+
+exit: 0 saudável · 1 avisos · 2 problema crítico · 3 erro de uso
+
+
+$ bun run start http://localhost:3939/health -n 5
+$ bun run src/cli.ts "http://localhost:3939/health" -n "5"
+
+  http://localhost:3939/health
+  5/5 ok · requisição p50 1ms / p95 3ms · abrir conexão +11ms · primeira chamada ~12ms
+
+  resolução DNS                   7ms  58%  ███████████████████·············
+  conexão TCP                     4ms  33%  ███████████·····················
+  espera pelo servidor (TTFB)     1ms   8%  ███·····························
+  download do corpo               0ms   0%  █·······························
+
+  ✔ Nada de anormal: p50 1ms
+
+  • resolução DNS é 58% do tempo (p50 7ms) [culprit-dns]
+     dns 7ms · tcp 4ms · ttfb 1ms · download 0ms
+     → DNS lento é resolver ruim ou TTL curto. Teste outro resolver e confira se o registro tem TTL decente. Em cluster, suspeite do CoreDNS e do ndots do /etc/resolv.conf.
+
+[exit 0]

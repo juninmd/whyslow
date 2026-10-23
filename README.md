@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/juninmd/whyslow/actions/workflows/ci.yml"><img src="https://github.com/juninmd/whyslow/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/juninmd/whyslow/actions/workflows/validate.yml"><img src="https://github.com/juninmd/whyslow/actions/workflows/validate.yml/badge.svg" alt="Validate"></a>
   <img src="https://img.shields.io/badge/Node.js-22%2B-417e38?logo=nodedotjs&amp;logoColor=white" alt="Node.js 22 ou superior">
   <img src="https://img.shields.io/badge/TypeScript-tipos_inclu%C3%ADdos-3178c6?logo=typescript&amp;logoColor=white" alt="Tipos TypeScript incluídos">
   <a href="https://www.conventionalcommits.org/en/v1.0.0/"><img src="https://img.shields.io/badge/Conventional_Commits-1.0.0-fbbf24" alt="Conventional Commits 1.0.0"></a>
@@ -14,7 +14,7 @@
 <p align="center"><strong>“Está lento” não é diagnóstico.</strong><br>Encontre a etapa que merece investigação, com um comando ou uma chamada de função.</p>
 
 <p align="center">
-  <a href="#instalação">Instalação</a> · <a href="#como-biblioteca">Biblioteca</a> · <a href="#pela-cli">CLI</a> · <a href="#releases-semânticas-e-publicação-npm">Releases</a>
+  <a href="#funcionalidades">Funcionalidades</a> · <a href="#arquitetura">Arquitetura</a> · <a href="#instalação">Instalação</a> · <a href="#como-biblioteca">Biblioteca</a> · <a href="#pela-cli">CLI</a> · <a href="#desenvolvimento-e-validação">Desenvolvimento</a> · <a href="#gates-de-ci">CI</a> · <a href="#releases-semânticas-e-publicação-npm">Releases</a>
 </p>
 
 Descubra em qual etapa uma requisição HTTP está lenta: **DNS, TCP, TLS, espera pela resposta ou download**. O whyslow mede um endpoint, compara amostras e entrega hipóteses de investigação com ações sugeridas.
@@ -24,6 +24,32 @@ Use pela CLI durante uma investigação ou importe a biblioteca em scripts, bots
 | Investigue | Entenda | Integre |
 |---|---|---|
 | DNS, TCP, TLS, TTFB e download separados | Percentis, custo de conexão e hipóteses com próximos passos | CLI, JSON e API ESM com tipos TypeScript |
+
+## Funcionalidades
+
+- Mede DNS, TCP, TLS, TTFB e download em fases separadas, com amostras repetidas e percentis p50/p95.
+- Separa o custo de abrir conexão (`connectionMs`) do custo da requisição em si.
+- Gera achados com código estável (`culprit-dns`, `no-compression`, `cert-expiring`, entre outros) e ação sugerida.
+- Segue redirecionamentos (padrão: 5) e remove cabeçalhos personalizados ao mudar de origem.
+- Saída em texto para terminal ou `--json`; o código de saída reflete a severidade dos achados (0, 1, 2 ou 3).
+- Biblioteca ESM com tipos TypeScript (`diagnose`, `measure`, `analyze`, `render`, `normalizeUrl`), sem dependências de execução.
+
+## Arquitetura
+
+Um único pacote, com CLI e biblioteca compartilhando o mesmo núcleo. Setas cheias indicam importação de valores; tracejadas, tipos ou dados trocados.
+
+```mermaid
+flowchart LR
+  CLI["src/cli.ts<br/>parseArgs + main"] --> IDX["src/index.ts<br/>diagnose / normalizeUrl"]
+  CLI --> REN["src/render.ts<br/>texto para terminal"]
+  LIB["Seu código<br/>import 'whyslow'"] --> IDX
+  IDX --> PROBE["src/probe.ts<br/>DNS, TCP, TLS, HTTP/1.1"]
+  IDX --> ANA["src/analyze.ts<br/>percentis e achados"]
+  REN --> ANA
+  PROBE -. "Sample[]" .-> ANA
+  TYPES["src/types.ts<br/>tipos compartilhados"] -.-> PROBE
+  TYPES -.-> ANA
+```
 
 ## Instalação
 
@@ -126,6 +152,24 @@ bun run start --help
 bun run start http://localhost:3000/health -n 10
 ```
 
+Exemplo real de execução contra um servidor local de teste (o `--help` e esta saída completos estão em [`docs/terminal.txt`](docs/terminal.txt)):
+
+```text
+$ bun run start http://localhost:3939/health -n 5
+
+  http://localhost:3939/health
+  5/5 ok · requisição p50 1ms / p95 3ms · abrir conexão +11ms · primeira chamada ~12ms
+
+  resolução DNS                   7ms  58%  ███████████████████·············
+  conexão TCP                     4ms  33%  ███████████·····················
+  espera pelo servidor (TTFB)     1ms   8%  ███·····························
+  download do corpo               0ms   0%  █·······························
+
+  ✔ Nada de anormal: p50 1ms
+```
+
+Os tempos variam a cada execução. Como é uma CLI, não há tela gráfica: o registro de terminal acima substitui o print.
+
 | Flag | Efeito |
 |---|---|
 | `-n, --samples <n>` | Amostras; padrão `5` |
@@ -174,6 +218,14 @@ Uma fase dominante só gera aviso/crítico de lentidão quando a mediana da requ
 - Ao mudar de origem num redirecionamento (protocolo, host ou porta), todos os cabeçalhos personalizados são removidos, incluindo tokens em nomes próprios. Eles também não são enviados nas amostras do destino final. Na mesma origem, são preservados.
 - Cinco amostras ajudam na triagem; não bastam para caracterizar uma cauda de latência em produção. Amostras sem tempos completos entram nos percentis com zero para fases ausentes; confira `analysis.ok` e as falhas antes de interpretar os números.
 - Um alvo por execução, sem concorrência de carga, monitoramento contínuo, corpo de requisição ou tratamento de `Retry-After`.
+
+## Gates de CI
+
+| Workflow | Quando | O que checa |
+|---|---|---|
+| `validate.yml` | PR e push em `main` | Chama o workflow reutilizável `reusable-validate.yml` de `juninmd/base-actions`: validação padrão do projeto |
+| `security.yml` | push em `main`, semanal, manual | Chama `reusable-security-scan.yml` de `juninmd/base-actions`: varredura de segurança |
+| `release.yml` | push em `main`, manual | Release Please e publicação npm (veja a seção seguinte) |
 
 ## Releases semânticas e publicação npm
 
