@@ -25,3 +25,15 @@ CLI e biblioteca ESM que mede DNS, TCP, TLS, TTFB e download de um endpoint HTTP
 - Não imprimir nem commitar `.env` ou tokens; `NPM_PUBLISH_ENABLED` é variável do repositório, não segredo.
 - A biblioteca não pode imprimir no terminal nem chamar `process.exit()`; isso fica só em `src/cli.ts`.
 - Documentação e mensagens em pt-BR; código, identificadores e commits em inglês.
+
+<!-- base-actions-main-policy -->
+## GitHub Actions — padrão obrigatório (@main)
+
+- Referencie as actions internas sempre pelo branch, nunca por SHA:
+  - `uses: juninmd/base-actions/<action>@main`
+  - `uses: juninmd/base-actions/.github/workflows/<arquivo>.yml@main`
+- Não fixe `@<sha>` em `juninmd/base-actions`: a atualização é centralizada no
+  `main` e passa a valer no próximo run.
+- PRs cujos checks não iniciam por billing/spending limit são mesclados pelo bot central
+  `juninmd/base-actions/.github/workflows/auto-merge-billing-blocked.yml`.
+  Para impedir o merge automático de um PR, aplique a label `do-not-merge`.
