@@ -31,13 +31,15 @@ export function render(a: Analysis): string {
 
   out.push("");
   out.push(`  ${bold(a.url)}`);
+  const ms = (v: number) => (a.ok ? `${Math.round(v)}ms` : "n/d");
+  const failedNote = a.ok < a.samples ? ` (${a.samples - a.ok} de ${a.samples} amostras falharam)` : "";
   out.push(
     dim(
-      `  ${a.ok}/${a.samples} ok · requisição p50 ${Math.round(a.totalP50)}ms / p95 ${Math.round(
+      `  ${a.ok}/${a.samples} ok · requisição p50 ${ms(a.totalP50)}${failedNote} / p95 ${ms(
         a.totalP95,
-      )}ms · abrir conexão +${a.connectionMs}ms · primeira chamada ~${
-        a.connectionMs + Math.round(a.totalP50)
-      }ms`,
+      )} · abrir conexão +${a.connectionMs}ms · primeira chamada ${
+        a.ok ? `~${a.connectionMs + Math.round(a.totalP50)}ms` : "n/d"
+      }`,
     ),
   );
   out.push("");
