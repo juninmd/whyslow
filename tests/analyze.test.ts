@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { analyze, percentile, phaseStats } from "../src/analyze.ts";
+import { render } from "../src/render.ts";
 import { daysUntil } from "../src/probe.ts";
 import { normalizeUrl, parseArgs } from "../src/cli.ts";
 import type { Finding, Sample } from "../src/types.ts";
@@ -250,5 +251,27 @@ describe("certificado", () => {
     expect(daysUntil("Aug 21 00:00:00 2026 GMT", now)).toBe(20);
     expect(daysUntil(undefined, now)).toBeNull();
     expect(daysUntil("data inválida", now)).toBeNull();
+  });
+});
+
+describe("percentis do total", () => {
+  const fail = () => sample({ ok: false, status: 0, error: "timeout", ttfbMs: null, downloadMs: null });
+  const fast = (ttfb: number) => sample({ ttfbMs: ttfb, downloadMs: 0 });
+
+  test("falhas não entram como 0 ms", () => {
+    const a = analyze("https://x", [fast(100), fast(120), fail(), fail(), fail()]);
+    expect(a.totalP50).toBe(110);
+  });
+
+  test("só falhas: zero e n/d no render", () => {
+    const a = analyze("https://x", [fail(), fail()]);
+    expect(a.totalP50).toBe(0);
+    expect(render(a)).toContain("n/d");
+  });
+
+  test("sem falhas os números não mudam", () => {
+    const a = analyze("https://x", [fast(100), fast(120)]);
+    expect(a.totalP50).toBe(110);
+    expect(render(a)).not.toContain("falharam");
   });
 });

@@ -61,7 +61,8 @@ export function analyze(url: string, samples: Sample[]): Analysis {
   const failed = samples.filter((s) => !s.ok);
   // "Total" aqui é o tempo da requisição em si (TTFB + download). O custo de
   // abrir conexão é reportado à parte: misturar os dois esconde os dois.
-  const totals = samples.map((s) => (s.ttfbMs ?? 0) + (s.downloadMs ?? 0));
+  // Só amostras ok: falha não é 0 ms, e contá-la assim faz a mediana melhorar quando o serviço piora.
+  const totals = ok.map((s) => (s.ttfbMs ?? 0) + (s.downloadMs ?? 0));
   const stats = phaseStats(samples);
   const culprit = stats.length
     ? (stats.reduce((a, b) => (b.p50 > a.p50 ? b : a)).phase as Phase)

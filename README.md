@@ -216,7 +216,7 @@ Uma fase dominante só gera aviso/crítico de lentidão quando a mediana da requ
 - Com `keepAlive: false`, sem aquecimento ou quando o servidor fecha o socket, o TTFB pode incluir abertura de conexão. Nesses casos, somar `connectionMs` ao tempo da requisição pode contar esse custo duas vezes.
 - A descoberta de redirecionamentos pode fazer requisições extras e aquecer o destino antes das amostras. O whyslow não mede o primeiro acesso a uma aplicação fria. Prefira endpoints de leitura, como health checks; o método configurado também é usado nas requisições extras.
 - Ao mudar de origem num redirecionamento (protocolo, host ou porta), todos os cabeçalhos personalizados são removidos, incluindo tokens em nomes próprios. Eles também não são enviados nas amostras do destino final. Na mesma origem, são preservados.
-- Cinco amostras ajudam na triagem; não bastam para caracterizar uma cauda de latência em produção. Amostras sem tempos completos entram nos percentis com zero para fases ausentes; confira `analysis.ok` e as falhas antes de interpretar os números.
+- Cinco amostras ajudam na triagem; não bastam para caracterizar uma cauda de latência em produção. `totalP50`/`totalP95` consideram só as amostras bem-sucedidas (zero quando nenhuma é; o terminal mostra `n/d`); confira `analysis.ok` e as falhas antes de interpretar os números.
 - Um alvo por execução, sem concorrência de carga, monitoramento contínuo, corpo de requisição ou tratamento de `Retry-After`.
 
 ## Gates de CI
