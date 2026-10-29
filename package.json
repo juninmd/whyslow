@@ -1,6 +1,6 @@
 {
   "name": "whyslow",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Mede DNS, TCP, TLS, TTFB e download separadamente e diz qual fase está lenta.",
   "homepage": "https://github.com/juninmd/whyslow#readme",
@@ -11,7 +11,14 @@
   "bugs": {
     "url": "https://github.com/juninmd/whyslow/issues"
   },
-  "keywords": ["http", "latency", "dns", "tls", "diagnostics", "cli"],
+  "keywords": [
+    "http",
+    "latency",
+    "dns",
+    "tls",
+    "diagnostics",
+    "cli"
+  ],
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
@@ -24,7 +31,9 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "engines": {
     "node": ">=22"
